@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# Флаг для принудительного режима (пропуск проверок активности и включения)
+FORCE_MODE=0
+
+# Обработка аргументов командной строки
+while getopts ":f" opt; do
+  case $opt in
+    f)
+      FORCE_MODE=1
+      ;;
+    \?)
+      echo "Неверный параметр: -$OPTARG" >&2
+      exit 1
+      ;;
+  esac
+done
+
 # Проверка прав доступа
 if [[ $EUID -ne 0 ]]; then
   echo "Этот скрипт требует прав суперпользователя (sudo)."
@@ -37,15 +53,17 @@ for SERVICE_FILE in $SERVICE_FILES; do
     continue
   fi
 
-  # Проверка статуса сервиса
-  if systemctl is-active --quiet "$SERVICE_NAME"; then
-    echo "Сервис '$SERVICE_NAME' уже активен. Пропускаем."
-    continue
-  fi
+  # Если режим -f не активен, выполняем проверки активности и включения
+  if [[ $FORCE_MODE -eq 0 ]]; then
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+      echo "Сервис '$SERVICE_NAME' уже активен. Пропускаем."
+      continue
+    fi
 
-  if systemctl is-enabled --quiet "$SERVICE_NAME"; then
-    echo "Сервис '$SERVICE_NAME' уже включен. Пропускаем."
-    continue
+    if systemctl is-enabled --quiet "$SERVICE_NAME"; then
+      echo "Сервис '$SERVICE_NAME' уже включен. Пропускаем."
+      continue
+    fi
   fi
 
   # Включение и запуск сервиса
